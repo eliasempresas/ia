@@ -92,15 +92,21 @@ ANIMES_TXT="$IPTV_DIR/animes.txt"
 : > "$TV_TXT"; : > "$FILMES_TXT"; : > "$SERIES_TXT"; : > "$ANIMES_TXT"
 
 log "Parsing M3U and splitting..."
-awk -v tv_out="$TV_TXT" -v filmes_out="$FILMES_TXT" -v series_out="$SERIES_TXT" -v animes_out="$ANIMES_TXT" '
+# Also write TSV with columns: name\turl\tlogo
+FILMES_TSV="$IPTV_DIR/filmes.tsv"
+SERIES_TSV="$IPTV_DIR/series.tsv"
+ANIMES_TSV="$IPTV_DIR/animes.tsv"
+: > "$FILMES_TSV"; : > "$SERIES_TSV"; : > "$ANIMES_TSV"
+awk -v tv_out="$TV_TXT" -v filmes_out="$FILMES_TXT" -v series_out="$SERIES_TXT" -v animes_out="$ANIMES_TXT" -v filmes_tsv="$FILMES_TSV" -v series_tsv="$SERIES_TSV" -v animes_tsv="$ANIMES_TSV" '
 	BEGIN { FS="\n"; RS="\r?\n" }
 	{
 		line=$0
 		if (line ~ /^#EXTINF/) {
 			meta=line
 			name=line
-			g=""
+			g=""; logo=""
 			if (match(meta, /group-title="([^"]+)"/, m)) { g=m[1] }
+			if (match(meta, /tvg-logo="([^"]+)"/, l)) { logo=l[1] }
 			if (match(name, /,([^,]+)$/, n)) { name=n[1] } else { name="" }
 			getline url
 			if (url ~ /^https?:\/\//) {
@@ -108,39 +114,61 @@ awk -v tv_out="$TV_TXT" -v filmes_out="$FILMES_TXT" -v series_out="$SERIES_TXT" 
 				lg=tolower(g)
 				if (lg ~ /filmes/) {
 					printf("\"%s\"=\"%s\"\n", name, url) >> filmes_out
+					printf("%s\t%s\t%s\n", name, url, logo) >> filmes_tsv
 				} else if (lg ~ /s[ee]ries|series/) {
 					printf("\"%s\"=\"%s\"\n", name, url) >> series_out
+					printf("%s\t%s\t%s\n", name, url, logo) >> series_tsv
 				} else if (lg ~ /animes/) {
 					printf("\"%s\"=\"%s\"\n", name, url) >> animes_out
+					printf("%s\t%s\t%s\n", name, url, logo) >> animes_tsv
 				}
 			}
 		}
 	}
 ' "$SRC_M3U"
 
-log "Created: $TV_TXT $FILMES_TXT $SERIES_TXT $ANIMES_TXT"
+log "Created: $TV_TXT $FILMES_TXT $SERIES_TXT $ANIMES_TXT and TSVs"
 
 if $DOWNLOAD_MEDIA; then
 	need ffmpeg
 	log "Downloading VOD (FILMES, ANIMES); organizing SERIES by season/episode"
 	baixar_vod() {
-		local tipo="$1"; local arquivo="$2"
-		while IFS='=' read -r raw_nome raw_url; do
-			[[ -n "${raw_nome:-}" && -n "${raw_url:-}" ]] || continue
-			nome=${raw_nome%"}; nome=${nome#"}
-			url=${raw_url%"}; url=${url#"}
-			[[ -n "$url" ]] || continue
-			mkdir -p "${ARQ_DIR}/VIDEOS/${tipo}/${nome}"
-			ffmpeg -loglevel error -y -i "$url" -c copy "${ARQ_DIR}/VIDEOS/${tipo}/${nome}/${nome}.mp4" || warn "Failed: $nome"
-		done < "$arquivo"
+		local tipo="$1"; local arquivo="$2"; local tsv="$3"
+		local linha nome url logo base_img_dir base_vid_dir
+		base_img_dir="${ARQ_DIR}/IMAGENS/${tipo}"
+		base_vid_dir="${ARQ_DIR}/VIDEOS/${tipo}"
+		mkdir -p "$base_img_dir" "$base_vid_dir"
+		while IFS=$'\t' read -r nome url logo; do
+			[[ -n "${nome:-}" && -n "${url:-}" ]] || continue
+			# Pastas e destinos
+			mkdir -p "${base_img_dir}/${nome}"
+			if [[ "$tipo" == "FILMES" ]]; then
+				mkdir -p "${base_vid_dir}"
+				vid_dest="${base_vid_dir}/${nome}.mp4"
+				img_dest1="${base_img_dir}/${nome}/${nome}.png"
+				img_dest2="${base_img_dir}/${nome}/${nome}-poster.png"
+			else
+				# Para ANIMES aqui baixamos somente o VOD unitário em nome/nome.mp4 (sem temporada)
+				mkdir -p "${base_vid_dir}/${nome}"
+				vid_dest="${base_vid_dir}/${nome}/${nome}.mp4"
+				img_dest1="${base_img_dir}/${nome}/${nome}.png"
+				img_dest2="${base_img_dir}/${nome}/${nome}-poster.png"
+			fi
+			# Download de vídeo
+			ffmpeg -loglevel error -y -i "$url" -c copy "$vid_dest" || warn "Failed: $nome"
+			# Imagens a partir do tvg-logo (se fornecido)
+			if [[ -n "${logo:-}" ]]; then
+				curl -fsSL "$logo" -o "$img_dest1" || true
+				cp -f "$img_dest1" "$img_dest2" 2>/dev/null || true
+			fi
+		done < "$tsv"
 	}
-	baixar_vod "FILMES" "$FILMES_TXT"
-	baixar_vod "ANIMES" "$ANIMES_TXT"
+	baixar_vod "FILMES" "$FILMES_TXT" "$FILMES_TSV"
+	baixar_vod "ANIMES" "$ANIMES_TXT" "$ANIMES_TSV"
 
-	while IFS='=' read -r raw_nome raw_url; do
-		[[ -n "${raw_nome:-}" && -n "${raw_url:-}" ]] || continue
-		nome=${raw_nome%"}; nome=${nome#"}
-		url=${raw_url%"}; url=${url#"}
+	# Séries: vídeo por temporada/episódio e imagens em estrutura exigida
+	while IFS=$'\t' read -r nome url logo; do
+		[[ -n "${nome:-}" && -n "${url:-}" ]] || continue
 		SEASON="1"; EPISODE="1"
 		if [[ "$nome" =~ [sS]([0-9]{1,2})[eE]([0-9]{1,2}) ]]; then
 			SEASON="${BASH_REMATCH[1]}"; EPISODE="${BASH_REMATCH[2]}"
@@ -151,10 +179,41 @@ if $DOWNLOAD_MEDIA; then
 		fi
 		SERIE=$(echo "$nome" | sed -E 's/[sS][0-9]+[eE][0-9]+.*//;s/[tT][0-9]+[eE][0-9]+.*//;s/[0-9]+x[0-9]+.*//' | sed 's/[[:space:]]\+$//')
 		[[ -z "$SERIE" ]] && SERIE="$nome"
-		DEST_DIR="${ARQ_DIR}/VIDEOS/SERIES/${SERIE}/${SEASON} TEMPORADA"
-		mkdir -p "$DEST_DIR"
-		ffmpeg -loglevel error -y -i "$url" -c copy "${DEST_DIR}/${SERIE}-T${SEASON}-E${EPISODE}.mp4" || warn "Failed series: $nome"
-	done < "$SERIES_TXT"
+		TEMP_DIR_NUM="${SEASON} TEMPORADA"
+		VID_DIR="${ARQ_DIR}/VIDEOS/SERIES/${SERIE}/${TEMP_DIR_NUM}"
+		IMG_DIR="${ARQ_DIR}/IMAGENS/SERIES/${SERIE}/${TEMP_DIR_NUM}"
+		mkdir -p "$VID_DIR" "$IMG_DIR"
+		EP_BASENAME="${SERIE}-T${SEASON}-E${EPISODE}"
+		ffmpeg -loglevel error -y -i "$url" -c copy "${VID_DIR}/${EP_BASENAME}.mp4" || warn "Failed series: $nome"
+		if [[ -n "${logo:-}" ]]; then
+			curl -fsSL "$logo" -o "${IMG_DIR}/${EP_BASENAME}.png" || true
+			cp -f "${IMG_DIR}/${EP_BASENAME}.png" "${IMG_DIR}/${EP_BASENAME}-poster.png" 2>/dev/null || true
+		fi
+	done < "$SERIES_TSV"
+
+	# Cópias de temporada (T## e T##-poster) se existir ao menos um episódio
+	while IFS= read -r -d '' tdir; do
+		serie=$(basename "$(dirname "$tdir")")
+		tnum=$(basename "$tdir" | grep -oE '^[0-9]+')
+		imgd="${ARQ_DIR}/IMAGENS/SERIES/${serie}/${tnum} TEMPORADA"
+		first_ep_img=$(find "$imgd" -maxdepth 1 -type f -name "${serie}-T${tnum}-E*.png" | head -n1)
+		if [[ -n "$first_ep_img" ]]; then
+			cp -f "$first_ep_img" "${imgd}/${serie}-T${tnum}.png" 2>/dev/null || true
+			cp -f "${imgd}/${serie}-T${tnum}.png" "${imgd}/${serie}-T${tnum}-poster.png" 2>/dev/null || true
+		fi
+	done < <(find "${ARQ_DIR}/VIDEOS/SERIES" -type d -name '* TEMPORADA' -print0)
+
+	# Estruturas para ANIMES por temporada/episódio (se houver)
+	while IFS= read -r -d '' tdir; do
+		anime=$(basename "$(dirname "$tdir")")
+		tnum=$(basename "$tdir" | grep -oE '^[0-9]+')
+		imgd="${ARQ_DIR}/IMAGENS/ANIMES/${anime}/${tnum} TEMPORADA"
+		first_ep_img=$(find "$imgd" -maxdepth 1 -type f -name "${anime}-T${tnum}-E*.png" | head -n1)
+		if [[ -n "$first_ep_img" ]]; then
+			cp -f "$first_ep_img" "${imgd}/${anime}-T${tnum}.png" 2>/dev/null || true
+			cp -f "${imgd}/${anime}-T${tnum}.png" "${imgd}/${anime}-T${tnum}-poster.png" 2>/dev/null || true
+		fi
+	done < <(find "${ARQ_DIR}/VIDEOS/ANIMES" -type d -name '* TEMPORADA' -print0)
 fi
 
 log "Unifying output files..."
@@ -283,11 +342,16 @@ DB_NAME="__DBN__"
 log(){ echo "[sync] $*"; }
 insere(){ local n="$1" u="$2" t="$3" c="$4" i="$5"; mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "INSERT INTO streams (stream_display_name, stream_source, stream_type, category_id, tv_archive, direct_source, stream_icon) VALUES ('${n}','${u}',${t},${c},0,'${u}','${i}') ON DUPLICATE KEY UPDATE stream_source=VALUES(stream_source), stream_icon=VALUES(stream_icon);"; }
 : > "$M3U_FILE"; echo "#EXTM3U" >> "$M3U_FILE"
-for f in "$DIR_FILMES"/*/*.mp4; do [ -f "$f" ] || continue; n=$(basename "$f" .mp4); p=$(basename "$(dirname "$f")"); img="$IMG_BASE_URL/FILMES/$p/${n}.png"; url="$VIDEO_BASE_URL/FILMES/$p/${n}.mp4"; echo "#EXTINF:-1 tvg-name=\"$n\" tvg-logo=\"$img\" group-title=\"FILMES\",$n" >> "$M3U_FILE"; echo "$url" >> "$M3U_FILE"; insere "$n" "$url" 5 1 "$img"; done
+# Filmes: path sem subpasta; imagens padrao e poster
+for f in "$DIR_FILMES"/*.mp4; do [ -f "$f" ] || continue; n=$(basename "$f" .mp4); img="$IMG_BASE_URL/FILMES/$n/$n.png"; url="$VIDEO_BASE_URL/FILMES/${n}.mp4"; echo "#EXTINF:-1 tvg-name=\"$n\" tvg-logo=\"$img\" group-title=\"FILMES\",$n" >> "$M3U_FILE"; echo "$url" >> "$M3U_FILE"; insere "$n" "$url" 5 1 "$img"; done
+# Séries
 shopt -s nullglob
 for tdir in "$DIR_SERIES"/*/*\ TEMPORADA; do [ -d "$tdir" ] || continue; serie=$(basename "$(dirname "$tdir")"); tnum=$(basename "$tdir" | grep -oE '^[0-9]+'); for ep in "$tdir"/*.mp4; do [ -f "$ep" ] || continue; ne=$(basename "$ep" .mp4); img="$IMG_BASE_URL/SERIES/$serie/${tnum} TEMPORADA/${ne}-poster.png"; url="$VIDEO_BASE_URL/SERIES/$serie/${tnum} TEMPORADA/${ne}.mp4"; echo "#EXTINF:-1 tvg-name=\"$ne\" tvg-logo=\"$img\" group-title=\"SERIES\",$ne" >> "$M3U_FILE"; echo "$url" >> "$M3U_FILE"; insere "$ne" "$url" 5 2 "$img"; done; done
+# Animes
 for tdir in "$DIR_ANIMES"/*/*\ TEMPORADA; do [ -d "$tdir" ] || continue; anime=$(basename "$(dirname "$tdir")"); tnum=$(basename "$tdir" | grep -oE '^[0-9]+'); for ep in "$tdir"/*.mp4; do [ -f "$ep" ] || continue; ne=$(basename "$ep" .mp4); img="$IMG_BASE_URL/ANIMES/$anime/${tnum} TEMPORADA/${ne}-poster.png"; url="$VIDEO_BASE_URL/ANIMES/$anime/${tnum} TEMPORADA/${ne}.mp4"; echo "#EXTINF:-1 tvg-name=\"$ne\" tvg-logo=\"$img\" group-title=\"ANIMES\",$ne" >> "$M3U_FILE"; echo "$url" >> "$M3U_FILE"; insere "$ne" "$url" 5 3 "$img"; done; done
+# Canais ao vivo
 if [[ -s "$TV_FILE" ]]; then while IFS='=' read -r rn ru; do [ -n "$rn" ] || continue; n=${rn%"}; n=${n#"}; u=${ru%"}; u=${u#"}; logo="$IMG_BASE_URL/CANAIS/${n}.png"; echo "#EXTINF:-1 tvg-id=\"$n\" tvg-name=\"$n\" tvg-logo=\"$logo\" group-title=\"CANAIS\",$n" >> "$M3U_FILE"; echo "$u" >> "$M3U_FILE"; insere "$n" "$u" 1 4 "$logo"; done < "$TV_FILE"; fi
+# EPG
 {
 	echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv>"
 	if [[ -s "$TV_FILE" ]]; then while IFS='=' read -r rn _; do [ -n "$rn" ] || continue; n=${rn%"}; n=${n#"}; echo "<channel id=\"$n\"><display-name>$n</display-name></channel>"; echo "<programme start=\"20250101000000 +0000\" stop=\"20250101235959 +0000\" channel=\"$n\"><title>$n</title><desc>TV ao vivo - $n</desc></programme>"; done < "$TV_FILE"; fi
