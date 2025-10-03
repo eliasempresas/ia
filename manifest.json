@@ -1,0 +1,60 @@
+{
+  "id": "com.eliasempresas.launcheree",
+  "version": "1.0.0",
+  "vendor": "Elias Empresas",
+  "type": "web",
+  "main": "index.html",
+  "title": "Launcher EE - Elias Empresas",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "splashBackground": "splash.png",
+  "bgImage": "bg.png",
+  "resolution": "1920x1080",
+  "handlesRelaunch": true,
+  "noSplashOnLaunch": false,
+  "transparent": false,
+  "hardwareAccelerated": true,
+  "supportGCM": true,
+  "requiredPermissions": [
+    "network",
+    "audio",
+    "video",
+    "storage",
+    "camera",
+    "microphone"
+  ],
+  "category": "multimedia",
+  "keywords": [
+    "elias",
+    "empresas",
+    "launcher",
+    "tv",
+    "manager",
+    "media",
+    "chat",
+    "iptv"
+  ],
+  "appDescription": "Launcher centralizador do ecossistema Elias Empresas para LG webOS TV",
+  "copyright": "© 2024 Elias Empresas. Todos os direitos reservados.",
+  "license": "Proprietary",
+  "minWebOSVersion": "4.0.0",
+  "targetWebOSVersion": "6.0.0",
+  "trustLevel": "trusted",
+  "uiRevision": 2,
+  "inspectable": true,
+  "noWindow": false,
+  "windowGroup": "eliasempresas.launcheree",
+  "preload": [
+    "js/preload.js"
+  ],
+  "services": [
+    {
+      "name": "com.eliasempresas.launcheree.service",
+      "description": "Serviço de monitoramento da TV"
+    }
+  ],
+  "privilegedJail": false,
+  "removable": true,
+  "visible": true,
+  "trustLevel": "trusted"
+}

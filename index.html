@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Launcher EE - Elias Empresas</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/modules.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <img src="assets/logo-elias.png" alt="Elias Empresas" class="splash-logo">
+            <h1>Launcher EE</h1>
+            <div class="loading-spinner"></div>
+            <p>Carregando ecossistema Elias Empresas...</p>
+        </div>
+    </div>
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="auth-screen hidden">
+        <div class="auth-container">
+            <div class="auth-header">
+                <img src="assets/logo-elias.png" alt="Elias Empresas" class="auth-logo">
+                <h2>Autorização Necessária</h2>
+                <p>Digite o código de autorização para acessar o Launcher EE</p>
+            </div>
+            
+            <div class="auth-form">
+                <div class="code-input-container">
+                    <input type="text" id="auth-code" placeholder="Código de autorização" maxlength="10">
+                    <button id="auth-submit" class="btn-primary">Autorizar</button>
+                </div>
+                
+                <div class="auth-status" id="auth-status">
+                    <div class="status-pending hidden">
+                        <div class="spinner-small"></div>
+                        <span>Verificando código...</span>
+                    </div>
+                    <div class="status-error hidden">
+                        <span class="error-icon">⚠️</span>
+                        <span>Código inválido ou expirado</span>
+                    </div>
+                    <div class="status-success hidden">
+                        <span class="success-icon">✅</span>
+                        <span>Autorização bem-sucedida!</span>
+                    </div>
+                </div>
+                
+                <div class="auth-help">
+                    <p>Para obter um código de autorização:</p>
+                    <ol>
+                        <li>Acesse o painel administrativo</li>
+                        <li>Gere um código para esta TV</li>
+                        <li>Digite o código acima</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="main-app hidden">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <img src="assets/logo-elias.png" alt="Elias Empresas" class="header-logo">
+                <h1>Launcher EE</h1>
+            </div>
+            <div class="header-right">
+                <div class="tv-status" id="tv-status">
+                    <span class="status-indicator online"></span>
+                    <span class="status-text">TV Online</span>
+                </div>
+                <div class="user-info" id="user-info">
+                    <span class="user-name">Família Oliveira</span>
+                    <button id="logout-btn" class="btn-logout">Sair</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="app-nav">
+            <div class="nav-item active" data-module="dashboard">
+                <div class="nav-icon">🏠</div>
+                <span>Dashboard</span>
+            </div>
+            <div class="nav-item" data-module="tv-manager">
+                <div class="nav-icon">📺</div>
+                <span>TV Manager</span>
+            </div>
+            <div class="nav-item" data-module="media">
+                <div class="nav-icon">🎬</div>
+                <span>Mídia EE</span>
+            </div>
+            <div class="nav-item" data-module="chat">
+                <div class="nav-icon">💬</div>
+                <span>Chat EE</span>
+            </div>
+            <div class="nav-item" data-module="cameras">
+                <div class="nav-icon">📹</div>
+                <span>Câmeras EE</span>
+            </div>
+            <div class="nav-item" data-module="painel">
+                <div class="nav-icon">📊</div>
+                <span>Painel Oliveira</span>
+            </div>
+            <div class="nav-item" data-module="iptv">
+                <div class="nav-icon">📡</div>
+                <span>IPTV EE</span>
+            </div>
+            <div class="nav-item" data-module="internet">
+                <div class="nav-icon">🌐</div>
+                <span>Internet EE</span>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="app-content">
+            <!-- Dashboard Module -->
+            <div id="module-dashboard" class="module active">
+                <div class="module-header">
+                    <h2>Dashboard - Visão Geral</h2>
+                    <p>Central de controle do ecossistema Elias Empresas</p>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <h3>Status da TV</h3>
+                        <div class="status-metrics">
+                            <div class="metric">
+                                <span class="metric-label">CPU</span>
+                                <span class="metric-value" id="cpu-usage">--</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">RAM</span>
+                                <span class="metric-value" id="ram-usage">--</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Rede</span>
+                                <span class="metric-value" id="network-status">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card">
+                        <h3>Dispositivos Conectados</h3>
+                        <div class="devices-list" id="devices-list">
+                            <div class="device-item">
+                                <span class="device-icon">📺</span>
+                                <span class="device-name">TV LG 55UP77</span>
+                                <span class="device-status online">Online</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card">
+                        <h3>Módulos Ativos</h3>
+                        <div class="modules-status" id="modules-status">
+                            <div class="module-status">
+                                <span class="module-name">TV Manager</span>
+                                <span class="module-state active">Ativo</span>
+                            </div>
+                            <div class="module-status">
+                                <span class="module-name">Mídia EE</span>
+                                <span class="module-state active">Ativo</span>
+                            </div>
+                            <div class="module-status">
+                                <span class="module-name">Chat EE</span>
+                                <span class="module-state inactive">Inativo</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card">
+                        <h3>Acesso Rápido</h3>
+                        <div class="quick-access">
+                            <button class="quick-btn" data-action="open-media">
+                                <span class="btn-icon">🎬</span>
+                                <span>Mídia EE</span>
+                            </button>
+                            <button class="quick-btn" data-action="open-chat">
+                                <span class="btn-icon">💬</span>
+                                <span>Chat EE</span>
+                            </button>
+                            <button class="quick-btn" data-action="open-iptv">
+                                <span class="btn-icon">📡</span>
+                                <span>IPTV EE</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TV Manager Module -->
+            <div id="module-tv-manager" class="module">
+                <div class="module-header">
+                    <h2>TV Manager</h2>
+                    <p>Controle completo da TV LG 55UP77</p>
+                </div>
+                
+                <div class="tv-manager-content">
+                    <div class="control-section">
+                        <h3>Controles de Áudio</h3>
+                        <div class="control-group">
+                            <label>Volume</label>
+                            <input type="range" id="volume-slider" min="0" max="100" value="50">
+                            <span id="volume-value">50%</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Modo de Áudio</label>
+                            <select id="audio-mode">
+                                <option value="standard">Padrão</option>
+                                <option value="cinema">Cinema</option>
+                                <option value="music">Música</option>
+                                <option value="game">Jogos</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="control-section">
+                        <h3>Controles de Vídeo</h3>
+                        <div class="control-group">
+                            <label>Brilho</label>
+                            <input type="range" id="brightness-slider" min="0" max="100" value="80">
+                            <span id="brightness-value">80%</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Contraste</label>
+                            <input type="range" id="contrast-slider" min="0" max="100" value="70">
+                            <span id="contrast-value">70%</span>
+                        </div>
+                        <div class="control-group">
+                            <label>Modo de Imagem</label>
+                            <select id="picture-mode">
+                                <option value="standard">Padrão</option>
+                                <option value="cinema">Cinema</option>
+                                <option value="game">Jogos</option>
+                                <option value="sports">Esportes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="control-section">
+                        <h3>Perfis Automáticos</h3>
+                        <div class="profiles-grid">
+                            <button class="profile-btn" data-profile="cinema">
+                                <span class="profile-icon">🎬</span>
+                                <span class="profile-name">Cinema</span>
+                            </button>
+                            <button class="profile-btn" data-profile="games">
+                                <span class="profile-icon">🎮</span>
+                                <span class="profile-name">Jogos</span>
+                            </button>
+                            <button class="profile-btn" data-profile="music">
+                                <span class="profile-icon">🎵</span>
+                                <span class="profile-name">Música</span>
+                            </button>
+                            <button class="profile-btn" data-profile="sports">
+                                <span class="profile-icon">⚽</span>
+                                <span class="profile-name">Esportes</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Media Module -->
+            <div id="module-media" class="module">
+                <div class="module-header">
+                    <h2>Mídia EE</h2>
+                    <p>Plataforma de entretenimento Elias Empresas</p>
+                </div>
+                
+                <div class="media-content">
+                    <div class="media-nav">
+                        <button class="media-nav-btn active" data-category="live">TV ao Vivo</button>
+                        <button class="media-nav-btn" data-category="movies">Filmes</button>
+                        <button class="media-nav-btn" data-category="series">Séries</button>
+                        <button class="media-nav-btn" data-category="anime">Animes</button>
+                    </div>
+                    
+                    <div class="media-grid" id="media-grid">
+                        <!-- Conteúdo será carregado dinamicamente -->
+                    </div>
+                    
+                    <div class="media-player" id="media-player">
+                        <video id="video-player" controls>
+                            <source src="" type="video/mp4">
+                            Seu navegador não suporta o elemento de vídeo.
+                        </video>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Module -->
+            <div id="module-chat" class="module">
+                <div class="module-header">
+                    <h2>Chat EE</h2>
+                    <p>Comunicação com IA Elias Empresas</p>
+                </div>
+                
+                <div class="chat-content">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message bot">
+                            <div class="message-avatar">🤖</div>
+                            <div class="message-content">
+                                <p>Olá! Sou a IA Elias Empresas. Como posso ajudá-lo hoje?</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input">
+                        <input type="text" id="chat-input-field" placeholder="Digite sua mensagem...">
+                        <button id="chat-send-btn">Enviar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cameras Module -->
+            <div id="module-cameras" class="module">
+                <div class="module-header">
+                    <h2>Câmeras EE</h2>
+                    <p>Monitoramento da Casa Oliveira</p>
+                </div>
+                
+                <div class="cameras-content">
+                    <div class="cameras-grid" id="cameras-grid">
+                        <div class="camera-item">
+                            <div class="camera-feed">
+                                <img src="assets/camera-placeholder.jpg" alt="Câmera 1">
+                                <div class="camera-overlay">
+                                    <span class="camera-name">Câmera Principal</span>
+                                    <span class="camera-status online">Online</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="camera-item">
+                            <div class="camera-feed">
+                                <img src="assets/camera-placeholder.jpg" alt="Câmera 2">
+                                <div class="camera-overlay">
+                                    <span class="camera-name">Câmera Entrada</span>
+                                    <span class="camera-status offline">Offline</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Painel Oliveira Module -->
+            <div id="module-painel" class="module">
+                <div class="module-header">
+                    <h2>Painel Oliveira</h2>
+                    <p>Sistemas administrativos da Família Oliveira</p>
+                </div>
+                
+                <div class="painel-content">
+                    <div class="dashboard-widgets">
+                        <div class="widget">
+                            <h3>Status dos Serviços</h3>
+                            <div class="service-status">
+                                <div class="service-item">
+                                    <span class="service-name">API Elias</span>
+                                    <span class="service-state online">Online</span>
+                                </div>
+                                <div class="service-item">
+                                    <span class="service-name">Banco de Dados</span>
+                                    <span class="service-state online">Online</span>
+                                </div>
+                                <div class="service-item">
+                                    <span class="service-name">Servidor Web</span>
+                                    <span class="service-state online">Online</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="widget">
+                            <h3>Estatísticas</h3>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">Usuários Ativos</span>
+                                    <span class="stat-value">127</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Sessões Hoje</span>
+                                    <span class="stat-value">1,234</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IPTV Module -->
+            <div id="module-iptv" class="module">
+                <div class="module-header">
+                    <h2>IPTV EE</h2>
+                    <p>Player de listas IPTV Elias Empresas</p>
+                </div>
+                
+                <div class="iptv-content">
+                    <div class="iptv-controls">
+                        <button class="iptv-btn" id="load-playlist">Carregar Playlist</button>
+                        <button class="iptv-btn" id="favorites">Favoritos</button>
+                        <button class="iptv-btn" id="settings">Configurações</button>
+                    </div>
+                    
+                    <div class="iptv-channels" id="iptv-channels">
+                        <div class="channel-item">
+                            <div class="channel-logo">📺</div>
+                            <div class="channel-info">
+                                <span class="channel-name">Canal Exemplo</span>
+                                <span class="channel-category">Entretenimento</span>
+                            </div>
+                            <button class="play-btn">▶️</button>
+                        </div>
+                    </div>
+                    
+                    <div class="iptv-player" id="iptv-player">
+                        <video id="iptv-video-player" controls>
+                            <source src="" type="application/x-mpegURL">
+                        </video>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Internet Module -->
+            <div id="module-internet" class="module">
+                <div class="module-header">
+                    <h2>Internet EE</h2>
+                    <p>Monitoramento de dados da internet em tempo real</p>
+                </div>
+                
+                <div class="internet-content">
+                    <div class="internet-stats">
+                        <div class="stat-card">
+                            <h3>Velocidade Atual</h3>
+                            <div class="speed-display">
+                                <span class="download-speed" id="download-speed">--</span>
+                                <span class="speed-label">Download</span>
+                            </div>
+                            <div class="speed-display">
+                                <span class="upload-speed" id="upload-speed">--</span>
+                                <span class="speed-label">Upload</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Uso de Dados</h3>
+                            <div class="data-usage">
+                                <div class="usage-bar">
+                                    <div class="usage-fill" id="usage-fill"></div>
+                                </div>
+                                <span class="usage-text" id="usage-text">0 GB / 100 GB</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Status da Conexão</h3>
+                            <div class="connection-info">
+                                <span class="connection-status" id="connection-status">Conectado</span>
+                                <span class="connection-type" id="connection-type">WiFi</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="internet-history">
+                        <h3>Histórico de Velocidade</h3>
+                        <canvas id="speed-chart" width="800" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/tv-monitor.js"></script>
+    <script src="js/modules.js"></script>
+    <script src="js/media.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/iptv.js"></script>
+    <script src="js/internet.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
