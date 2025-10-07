@@ -253,15 +253,29 @@ class ChatModule extends BaseModule {
         messageDiv.className = `message ${type}`;
         
         const avatar = this.getAvatar(type);
-        const timeStr = timestamp ? this.formatTime(timestamp) : '';
         
-        messageDiv.innerHTML = `
-            <div class="message-avatar">${avatar}</div>
-            <div class="message-content">
-                <p>${message}</p>
-                ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
-            </div>
-        `;
+        // Criar elementos de forma segura
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'message-avatar';
+        avatarDiv.textContent = avatar;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        const messagePara = document.createElement('p');
+        messagePara.textContent = message;
+        
+        contentDiv.appendChild(messagePara);
+        
+        if (timestamp) {
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'message-time';
+            timeSpan.textContent = this.formatTime(timestamp);
+            contentDiv.appendChild(timeSpan);
+        }
+        
+        messageDiv.appendChild(avatarDiv);
+        messageDiv.appendChild(contentDiv);
         
         return messageDiv;
     }

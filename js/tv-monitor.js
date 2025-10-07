@@ -126,41 +126,93 @@ class TVMonitor {
     
     async getSystemMetrics() {
         try {
-            // Simular métricas do sistema webOS
-            // Em uma implementação real, isso seria feito via webOS APIs
-            const metrics = {
-                cpu: Math.random() * 100,
-                ram: Math.random() * 100,
-                temperature: 35 + Math.random() * 15,
-                uptime: Date.now() - (Date.now() - Math.random() * 86400000) // Uptime simulado
-            };
-            
-            return metrics;
+            // Integrar com APIs reais do webOS
+            if (typeof webOS !== 'undefined') {
+                return new Promise((resolve) => {
+                    webOS.service.request('luna://com.webos.service.systemservice', {
+                        method: 'getSystemInfo',
+                        parameters: {
+                            keys: ['cpuUsage', 'memUsage', 'temperature', 'uptime']
+                        },
+                        onSuccess: (response) => {
+                            const metrics = {
+                                cpu: response.cpuUsage || 0,
+                                ram: response.memUsage || 0,
+                                temperature: response.temperature || 0,
+                                uptime: response.uptime || 0
+                            };
+                            resolve(metrics);
+                        },
+                        onFailure: (error) => {
+                            logger.error('Erro ao obter métricas via webOS API', error);
+                            // Fallback para valores simulados em caso de erro
+                            resolve(this.getSimulatedMetrics());
+                        }
+                    });
+                });
+            } else {
+                // Fallback para ambiente de desenvolvimento
+                logger.warn('webOS API não disponível, usando métricas simuladas');
+                return this.getSimulatedMetrics();
+            }
         } catch (error) {
             logger.error('Erro ao obter métricas do sistema', error);
-            return {
-                cpu: 0,
-                ram: 0,
-                temperature: 0,
-                uptime: 0
-            };
+            return this.getSimulatedMetrics();
         }
+    }
+    
+    getSimulatedMetrics() {
+        // Métricas simuladas para desenvolvimento/teste
+        return {
+            cpu: Math.random() * 100,
+            ram: Math.random() * 100,
+            temperature: 35 + Math.random() * 15,
+            uptime: Date.now() - Math.random() * 86400000
+        };
     }
     
     async getNetworkStatus() {
         try {
-            // Verificar conectividade
-            const response = await fetch('https://api.eliasempresas.com/ping', {
-                method: 'HEAD',
-                timeout: 5000
-            });
-            
-            if (response.ok) {
-                return 'online';
+            // Integrar com webOS API quando disponível
+            if (typeof webOS !== 'undefined') {
+                return new Promise((resolve) => {
+                    webOS.service.request('luna://com.webos.service.connectionmanager', {
+                        method: 'getStatus',
+                        parameters: {},
+                        onSuccess: (response) => {
+                            if (response.isInternetConnectionAvailable) {
+                                resolve('online');
+                            } else {
+                                resolve('offline');
+                            }
+                        },
+                        onFailure: () => {
+                            resolve('unknown');
+                        }
+                    });
+                });
             } else {
-                return 'limited';
+                // Fallback para verificação via fetch com timeout adequado
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch('https://api.eliasempresas.com/ping', {
+                    method: 'HEAD',
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    return 'online';
+                } else {
+                    return 'limited';
+                }
             }
         } catch (error) {
+            if (error.name === 'AbortError') {
+                logger.warn('Timeout ao verificar status de rede');
+            }
             return 'offline';
         }
     }
@@ -310,16 +362,28 @@ class TVMonitor {
     }
     
     showAlert(title, message, type = 'info') {
-        // Criar elemento de alerta
+        // Criar elemento de alerta de forma segura
         const alert = document.createElement('div');
         alert.className = `alert alert-${type}`;
-        alert.innerHTML = `
-            <div class="alert-content">
-                <h4>${title}</h4>
-                <p>${message}</p>
-            </div>
-            <button class="alert-close">&times;</button>
-        `;
+        
+        const alertContent = document.createElement('div');
+        alertContent.className = 'alert-content';
+        
+        const titleElement = document.createElement('h4');
+        titleElement.textContent = title;
+        
+        const messageElement = document.createElement('p');
+        messageElement.textContent = message;
+        
+        alertContent.appendChild(titleElement);
+        alertContent.appendChild(messageElement);
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'alert-close';
+        closeBtn.textContent = '×';
+        
+        alert.appendChild(alertContent);
+        alert.appendChild(closeBtn);
         
         // Adicionar ao topo da página
         const mainApp = document.getElementById('main-app');
@@ -334,14 +398,11 @@ class TVMonitor {
             }, 5000);
             
             // Listener para fechar
-            const closeBtn = alert.querySelector('.alert-close');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    if (alert.parentNode) {
-                        alert.parentNode.removeChild(alert);
-                    }
-                });
-            }
+            closeBtn.addEventListener('click', () => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            });
         }
         
         logger.warn(`Alerta: ${title} - ${message}`);
@@ -384,20 +445,43 @@ class TVMonitor {
     // Métodos públicos para controle da TV
     async setVolume(volume) {
         try {
-            // Simular controle de volume
-            // Em uma implementação real, isso seria feito via webOS APIs
             logger.info(`Alterando volume para ${volume}%`);
             
-            // Atualizar UI
-            const volumeValue = document.getElementById('volume-value');
-            if (volumeValue) {
-                volumeValue.textContent = volume + '%';
+            // Integrar com webOS API
+            if (typeof webOS !== 'undefined') {
+                return new Promise((resolve) => {
+                    webOS.service.request('luna://com.webos.service.audio', {
+                        method: 'setVolume',
+                        parameters: {
+                            volume: volume,
+                            soundOutput: 'speaker'
+                        },
+                        onSuccess: () => {
+                            this.updateVolumeUI(volume);
+                            resolve(true);
+                        },
+                        onFailure: (error) => {
+                            logger.error('Erro ao alterar volume via webOS API', error);
+                            resolve(false);
+                        }
+                    });
+                });
+            } else {
+                // Fallback para desenvolvimento
+                logger.warn('webOS API não disponível, atualizando apenas UI');
+                this.updateVolumeUI(volume);
+                return true;
             }
-            
-            return true;
         } catch (error) {
             logger.error('Erro ao alterar volume', error);
             return false;
+        }
+    }
+    
+    updateVolumeUI(volume) {
+        const volumeValue = document.getElementById('volume-value');
+        if (volumeValue) {
+            volumeValue.textContent = volume + '%';
         }
     }
     
@@ -405,16 +489,43 @@ class TVMonitor {
         try {
             logger.info(`Alterando brilho para ${brightness}%`);
             
-            // Atualizar UI
-            const brightnessValue = document.getElementById('brightness-value');
-            if (brightnessValue) {
-                brightnessValue.textContent = brightness + '%';
+            // Integrar com webOS API
+            if (typeof webOS !== 'undefined') {
+                return new Promise((resolve) => {
+                    webOS.service.request('luna://com.webos.settingsservice', {
+                        method: 'setSystemSettings',
+                        parameters: {
+                            category: 'picture',
+                            settings: {
+                                brightness: brightness
+                            }
+                        },
+                        onSuccess: () => {
+                            this.updateBrightnessUI(brightness);
+                            resolve(true);
+                        },
+                        onFailure: (error) => {
+                            logger.error('Erro ao alterar brilho via webOS API', error);
+                            resolve(false);
+                        }
+                    });
+                });
+            } else {
+                // Fallback para desenvolvimento
+                logger.warn('webOS API não disponível, atualizando apenas UI');
+                this.updateBrightnessUI(brightness);
+                return true;
             }
-            
-            return true;
         } catch (error) {
             logger.error('Erro ao alterar brilho', error);
             return false;
+        }
+    }
+    
+    updateBrightnessUI(brightness) {
+        const brightnessValue = document.getElementById('brightness-value');
+        if (brightnessValue) {
+            brightnessValue.textContent = brightness + '%';
         }
     }
     
@@ -422,16 +533,43 @@ class TVMonitor {
         try {
             logger.info(`Alterando contraste para ${contrast}%`);
             
-            // Atualizar UI
-            const contrastValue = document.getElementById('contrast-value');
-            if (contrastValue) {
-                contrastValue.textContent = contrast + '%';
+            // Integrar com webOS API
+            if (typeof webOS !== 'undefined') {
+                return new Promise((resolve) => {
+                    webOS.service.request('luna://com.webos.settingsservice', {
+                        method: 'setSystemSettings',
+                        parameters: {
+                            category: 'picture',
+                            settings: {
+                                contrast: contrast
+                            }
+                        },
+                        onSuccess: () => {
+                            this.updateContrastUI(contrast);
+                            resolve(true);
+                        },
+                        onFailure: (error) => {
+                            logger.error('Erro ao alterar contraste via webOS API', error);
+                            resolve(false);
+                        }
+                    });
+                });
+            } else {
+                // Fallback para desenvolvimento
+                logger.warn('webOS API não disponível, atualizando apenas UI');
+                this.updateContrastUI(contrast);
+                return true;
             }
-            
-            return true;
         } catch (error) {
             logger.error('Erro ao alterar contraste', error);
             return false;
+        }
+    }
+    
+    updateContrastUI(contrast) {
+        const contrastValue = document.getElementById('contrast-value');
+        if (contrastValue) {
+            contrastValue.textContent = contrast + '%';
         }
     }
     

@@ -98,7 +98,14 @@ const CONFIG = {
             playerConfig: {
                 autoplay: false,
                 controls: true
-            }
+            },
+            // Whitelist de domínios permitidos para playlists (segurança contra SSRF)
+            allowedDomains: [
+                'api.eliasempresas.com',
+                'cdn.eliasempresas.com',
+                'iptv.eliasempresas.com',
+                'streaming.eliasempresas.com'
+            ]
         },
         
         INTERNET: {

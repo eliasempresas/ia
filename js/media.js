@@ -221,14 +221,33 @@ class MediaModule extends BaseModule {
         mediaElement.dataset.url = item.url;
         mediaElement.dataset.type = item.type;
         
-        mediaElement.innerHTML = `
-            <div class="media-thumbnail">${item.thumbnail}</div>
-            <div class="media-info">
-                <div class="media-title">${item.title}</div>
-                <div class="media-meta">${item.description}</div>
-                ${this.createMediaMeta(item)}
-            </div>
-        `;
+        // Criar elementos de forma segura
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.className = 'media-thumbnail';
+        thumbnailDiv.textContent = item.thumbnail;
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'media-info';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'media-title';
+        titleDiv.textContent = item.title;
+        
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'media-meta';
+        metaDiv.textContent = item.description;
+        
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+        
+        // Adicionar meta informações
+        const metaInfo = this.createMediaMetaElement(item);
+        if (metaInfo) {
+            infoDiv.appendChild(metaInfo);
+        }
+        
+        mediaElement.appendChild(thumbnailDiv);
+        mediaElement.appendChild(infoDiv);
         
         return mediaElement;
     }

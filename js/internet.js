@@ -113,11 +113,16 @@ class InternetModule extends BaseModule {
     
     async updateConnectionStatus() {
         try {
-            // Verificar conectividade
+            // Verificar conectividade com timeout adequado usando AbortController
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
             const response = await fetch('https://api.eliasempresas.com/ping', {
                 method: 'HEAD',
-                timeout: 5000
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (response.ok) {
                 this.connectionStatus = 'connected';
@@ -129,16 +134,41 @@ class InternetModule extends BaseModule {
             this.connectionType = this.detectConnectionType();
             
         } catch (error) {
+            if (error.name === 'AbortError') {
+                logger.warn('Timeout ao verificar conectividade');
+            }
             this.connectionStatus = 'offline';
             this.connectionType = 'unknown';
         }
     }
     
     detectConnectionType() {
-        // Simular detecção de tipo de conexão
-        // Em uma implementação real, isso seria feito via webOS APIs
-        const types = ['WiFi', 'Ethernet', 'Mobile'];
-        return types[Math.floor(Math.random() * types.length)];
+        // Integrar com webOS API
+        if (typeof webOS !== 'undefined') {
+            return new Promise((resolve) => {
+                webOS.service.request('luna://com.webos.service.connectionmanager', {
+                    method: 'getStatus',
+                    parameters: {},
+                    onSuccess: (response) => {
+                        // Detectar tipo baseado na resposta
+                        if (response.wired) {
+                            resolve('Ethernet');
+                        } else if (response.wifi) {
+                            resolve('WiFi');
+                        } else {
+                            resolve('Unknown');
+                        }
+                    },
+                    onFailure: () => {
+                        resolve('Unknown');
+                    }
+                });
+            });
+        } else {
+            // Fallback para desenvolvimento
+            const types = ['WiFi', 'Ethernet'];
+            return types[Math.floor(Math.random() * types.length)];
+        }
     }
     
     async updateCurrentSpeed() {

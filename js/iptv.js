@@ -218,9 +218,15 @@ class IPTVModule extends BaseModule {
                 return;
             }
             
+            // Validar URL antes de fazer fetch (prevenir SSRF)
+            if (!this.isValidPlaylistUrl(url)) {
+                this.showError('URL da playlist inválida. Use apenas HTTPS de domínios permitidos.');
+                return;
+            }
+            
             logger.info(`Carregando playlist: ${url}`);
             
-            // Simular carregamento de playlist
+            // Carregar playlist com validação
             const playlist = await this.parsePlaylist(url, name);
             
             this.playlists.push(playlist);
@@ -233,6 +239,34 @@ class IPTVModule extends BaseModule {
         } catch (error) {
             logger.error('Erro ao carregar playlist', error);
             this.showError('Erro ao carregar playlist');
+        }
+    }
+    
+    isValidPlaylistUrl(url) {
+        try {
+            const parsedUrl = new URL(url);
+            
+            // Apenas HTTPS permitido
+            if (parsedUrl.protocol !== 'https:') {
+                return false;
+            }
+            
+            // Whitelist de domínios permitidos (ou configurável)
+            const allowedDomains = CONFIG.MODULES.IPTV.allowedDomains || [
+                'api.eliasempresas.com',
+                'cdn.eliasempresas.com',
+                'iptv.eliasempresas.com'
+            ];
+            
+            // Verificar se o domínio está na lista permitida
+            const isAllowed = allowedDomains.some(domain => 
+                parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+            );
+            
+            return isAllowed;
+            
+        } catch (error) {
+            return false;
         }
     }
     
@@ -287,7 +321,7 @@ class IPTVModule extends BaseModule {
             
             const duration = match[1];
             const attributes = match[2] || '';
-            const title = match[3];
+            const title = match[3].trim();
             
             // Parse attributes
             const attrs = {};
@@ -299,14 +333,19 @@ class IPTVModule extends BaseModule {
                 });
             }
             
+            const url = urlLine.trim();
+            
+            // Gerar ID estável baseado em tvg-id ou hash da combinação nome+URL
+            const stableId = attrs['tvg-id'] || this.generateChannelId(title, url);
+            
             return {
-                id: 'channel-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-                name: title,
-                category: attrs['group-title'] || 'Geral',
-                logo: attrs['tvg-logo'] || '📺',
-                url: urlLine.trim(),
-                description: attrs['tvg-name'] || title,
-                language: attrs['tvg-language'] || 'pt-BR',
+                id: stableId,
+                name: this.sanitizeText(title),
+                category: this.sanitizeText(attrs['group-title'] || 'Geral'),
+                logo: this.sanitizeText(attrs['tvg-logo'] || '📺'),
+                url: url,
+                description: this.sanitizeText(attrs['tvg-name'] || title),
+                language: this.sanitizeText(attrs['tvg-language'] || 'pt-BR'),
                 quality: 'HD'
             };
             
@@ -314,6 +353,25 @@ class IPTVModule extends BaseModule {
             logger.error('Erro ao fazer parse da linha EXTINF', error);
             return null;
         }
+    }
+    
+    generateChannelId(name, url) {
+        // Gerar ID estável usando hash simples
+        const str = `${name}-${url}`;
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return 'channel-' + Math.abs(hash).toString(36);
+    }
+    
+    sanitizeText(text) {
+        // Remover tags HTML e caracteres perigosos
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     updateChannelsList() {
@@ -337,26 +395,48 @@ class IPTVModule extends BaseModule {
         
         const isFavorite = this.favorites.includes(channel.id);
         
-        channelElement.innerHTML = `
-            <div class="channel-logo">${channel.logo}</div>
-            <div class="channel-info">
-                <span class="channel-name">${channel.name}</span>
-                <span class="channel-category">${channel.category}</span>
-            </div>
-            <div class="channel-actions">
-                <button class="favorite-btn ${isFavorite ? 'active' : ''}" data-channel-id="${channel.id}">
-                    ${isFavorite ? '❤️' : '🤍'}
-                </button>
-                <button class="play-btn" data-channel-id="${channel.id}">▶️</button>
-            </div>
-        `;
+        // Criar elementos de forma segura usando createElement e textContent
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'channel-logo';
+        logoDiv.textContent = channel.logo;
         
-        // Event listeners para ações
-        const favoriteBtn = channelElement.querySelector('.favorite-btn');
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'channel-info';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'channel-name';
+        nameSpan.textContent = channel.name;
+        
+        const categorySpan = document.createElement('span');
+        categorySpan.className = 'channel-category';
+        categorySpan.textContent = channel.category;
+        
+        infoDiv.appendChild(nameSpan);
+        infoDiv.appendChild(categorySpan);
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'channel-actions';
+        
+        const favoriteBtn = document.createElement('button');
+        favoriteBtn.className = 'favorite-btn' + (isFavorite ? ' active' : '');
+        favoriteBtn.dataset.channelId = channel.id;
+        favoriteBtn.textContent = isFavorite ? '❤️' : '🤍';
         favoriteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleFavorite(channel.id);
         });
+        
+        const playBtn = document.createElement('button');
+        playBtn.className = 'play-btn';
+        playBtn.dataset.channelId = channel.id;
+        playBtn.textContent = '▶️';
+        
+        actionsDiv.appendChild(favoriteBtn);
+        actionsDiv.appendChild(playBtn);
+        
+        channelElement.appendChild(logoDiv);
+        channelElement.appendChild(infoDiv);
+        channelElement.appendChild(actionsDiv);
         
         return channelElement;
     }
@@ -512,33 +592,67 @@ class IPTVModule extends BaseModule {
             return;
         }
         
-        // Criar dialog de favoritos
+        // Criar dialog de favoritos de forma segura
         const dialog = document.createElement('div');
         dialog.className = 'iptv-dialog';
-        dialog.innerHTML = `
-            <div class="dialog-content">
-                <h3>Canais Favoritos</h3>
-                <div class="dialog-body">
-                    <div class="favorites-list">
-                        ${favoriteChannels.map(channel => `
-                            <div class="favorite-item" data-channel-id="${channel.id}">
-                                <span class="channel-logo">${channel.logo}</span>
-                                <span class="channel-name">${channel.name}</span>
-                                <button class="play-btn">▶️</button>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="dialog-actions">
-                    <button id="close-favorites" class="btn-primary">Fechar</button>
-                </div>
-            </div>
-        `;
+        
+        const dialogContent = document.createElement('div');
+        dialogContent.className = 'dialog-content';
+        
+        const title = document.createElement('h3');
+        title.textContent = 'Canais Favoritos';
+        
+        const dialogBody = document.createElement('div');
+        dialogBody.className = 'dialog-body';
+        
+        const favoritesList = document.createElement('div');
+        favoritesList.className = 'favorites-list';
+        
+        // Criar itens de favoritos de forma segura
+        favoriteChannels.forEach(channel => {
+            const favoriteItem = document.createElement('div');
+            favoriteItem.className = 'favorite-item';
+            favoriteItem.dataset.channelId = channel.id;
+            
+            const logo = document.createElement('span');
+            logo.className = 'channel-logo';
+            logo.textContent = channel.logo;
+            
+            const name = document.createElement('span');
+            name.className = 'channel-name';
+            name.textContent = channel.name;
+            
+            const playBtn = document.createElement('button');
+            playBtn.className = 'play-btn';
+            playBtn.textContent = '▶️';
+            
+            favoriteItem.appendChild(logo);
+            favoriteItem.appendChild(name);
+            favoriteItem.appendChild(playBtn);
+            favoritesList.appendChild(favoriteItem);
+        });
+        
+        dialogBody.appendChild(favoritesList);
+        
+        const dialogActions = document.createElement('div');
+        dialogActions.className = 'dialog-actions';
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'close-favorites';
+        closeBtn.className = 'btn-primary';
+        closeBtn.textContent = 'Fechar';
+        
+        dialogActions.appendChild(closeBtn);
+        
+        dialogContent.appendChild(title);
+        dialogContent.appendChild(dialogBody);
+        dialogContent.appendChild(dialogActions);
+        dialog.appendChild(dialogContent);
         
         document.body.appendChild(dialog);
         
         // Event listeners
-        document.getElementById('close-favorites').addEventListener('click', () => {
+        closeBtn.addEventListener('click', () => {
             document.body.removeChild(dialog);
         });
         
