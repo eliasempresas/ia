@@ -1,0 +1,49 @@
+{
+  "name": "launcher-ee",
+  "version": "1.0.0",
+  "description": "Launcher EE - Elias Empresas para LG webOS TV",
+  "main": "index.html",
+  "scripts": {
+    "build": "sh build/build.sh",
+    "build:win": "powershell -ExecutionPolicy Bypass -File build/build.ps1",
+    "build:android": "sh build/build-android.sh",
+    "install": "ares-install -d lg-tv *.ipk",
+    "launch": "ares-launch -d lg-tv com.eliasempresas.launcher",
+    "inspect": "ares-inspect -d lg-tv -a com.eliasempresas.launcher --open",
+    "logs": "ares-inspect -d lg-tv -a com.eliasempresas.launcher",
+    "uninstall": "ares-install -d lg-tv --remove com.eliasempresas.launcher",
+    "list": "ares-install -d lg-tv --list",
+    "device-info": "ares-device-info -d lg-tv",
+    "setup-device": "ares-setup-device"
+  },
+  "keywords": [
+    "webos",
+    "lg",
+    "tv",
+    "launcher",
+    "elias-empresas"
+  ],
+  "author": "Elias Empresas",
+  "license": "PROPRIETARY",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eliasempresas/launcher-ee.git"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "devDependencies": {
+    "@webos-tools/cli": "^2.0.0"
+  },
+  "webos": {
+    "id": "com.eliasempresas.launcher",
+    "version": "1.0.0",
+    "vendor": "Elias Empresas",
+    "type": "web",
+    "main": "index.html",
+    "title": "Launcher EE",
+    "icon": "assets/icon.png",
+    "largeIcon": "assets/largeIcon.png"
+  }
+}

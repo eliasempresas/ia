@@ -252,6 +252,41 @@ class MediaModule extends BaseModule {
         return mediaElement;
     }
     
+    createMediaMetaElement(item) {
+        const metaContainer = document.createElement('div');
+        metaContainer.className = 'media-meta-info';
+        
+        switch (item.type) {
+            case 'live':
+                const liveSpan = document.createElement('span');
+                liveSpan.className = 'live-badge';
+                liveSpan.textContent = '🔴 AO VIVO';
+                metaContainer.appendChild(liveSpan);
+                break;
+            case 'movie':
+                if (item.duration) {
+                    const durationSpan = document.createElement('span');
+                    durationSpan.textContent = item.duration;
+                    metaContainer.appendChild(durationSpan);
+                }
+                if (item.year) {
+                    const yearSpan = document.createElement('span');
+                    yearSpan.textContent = item.year;
+                    metaContainer.appendChild(yearSpan);
+                }
+                break;
+            case 'series':
+                if (item.seasons) {
+                    const seasonsSpan = document.createElement('span');
+                    seasonsSpan.textContent = `${item.seasons} temporadas`;
+                    metaContainer.appendChild(seasonsSpan);
+                }
+                break;
+        }
+        
+        return metaContainer.children.length > 0 ? metaContainer : null;
+    }
+    
     createMediaMeta(item) {
         let meta = '';
         

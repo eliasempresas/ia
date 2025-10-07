@@ -1,0 +1,28 @@
+{
+  "id": "com.eliasempresas.launcher",
+  "version": "1.0.0",
+  "vendor": "Elias Empresas",
+  "type": "web",
+  "main": "index.html",
+  "title": "Launcher EE",
+  "icon": "assets/icon.png",
+  "largeIcon": "assets/largeIcon.png",
+  "splashBackground": "assets/splash.png",
+  "transparent": false,
+  "resolution": "1920x1080",
+  "bgColor": "#f8f9fa",
+  "bgImage": "",
+  "requiredPermissions": [
+    "time.query",
+    "activity.operation",
+    "applications.operation",
+    "settings.read",
+    "settings.write",
+    "audio.operation",
+    "audio.query",
+    "tv.operation",
+    "tv.display",
+    "network.operation",
+    "network.query"
+  ]
+}
